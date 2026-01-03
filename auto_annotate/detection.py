@@ -10,19 +10,41 @@ import json
 
 from .model_adapters.qwen import prepare_inputs_for_vllm
 
-def make_classification_schema(class_names: list[str]) -> dict:
+def make_detection_schema(class_names: list[str]) -> dict:
     return {
         "type": "object",
         "properties": {
-            "label": {
-                "type": "string",
-                "enum": class_names, 
-                "description": "Predicted class label. Must be one of enum values."
+            "detections": {
+                "type": "array",
+                "description": "List of detected objects",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "bbox": {
+                            "type": "array",
+                            "description": (
+                                "Bounding box in [x1, y1, x2, y2] "
+                                "image coordinates"
+                            ),
+                            "items": {"type": "number"},
+                            "minItems": 4,
+                            "maxItems": 4
+                        },
+                        "label": {
+                            "type": "string",
+                            "enum": class_names,
+                            "description": "Object class label"
+                        },
+                    },
+                    "required": ["bbox", "label"],
+                    "additionalProperties": False
+                }
             }
         },
-        "required": ["label"],
+        "required": ["detections"],
         "additionalProperties": False
     }
+
 
 
 def construct_messages(image, prompt):
@@ -39,7 +61,7 @@ def construct_messages(image, prompt):
         }
     ]
 
-class ClassificationModel(VLMModel):
+class DetectionModel(VLMModel):
     def __init__(
         self,
         *args,
@@ -91,7 +113,12 @@ class ClassificationModel(VLMModel):
 
         Возвращаем список dict:
         {
-          "label": str
+        "detections": [
+                {
+                "bbox": [x1, y1, x2, y2],
+                "label": string
+                }
+            ]
         }
         """
         class_names: List[str] = kwargs.get("class_names")
@@ -99,7 +126,7 @@ class ClassificationModel(VLMModel):
             raise ValueError("predict_batch requires 'class_names' in kwargs")
 
         structured_output = StructuredOutputsParams(
-            json=make_classification_schema(class_names)
+            json=make_detection_schema(class_names)
         )
 
         sampling_params = SamplingParams(
@@ -131,11 +158,11 @@ class ClassificationModel(VLMModel):
             text = out.outputs[0].text.strip()
 
             result = json.loads(text)
-            label = result.get("label", "")
+            detections = result.get("detections", [])
 
             results.append(
                 {
-                    "label": label
+                    "detections": detections
                 }
             )
 
@@ -143,10 +170,10 @@ class ClassificationModel(VLMModel):
 
 
 
-class ClassificationAnnotator(BaseAnnotator):
+class DetectionAnnotator(BaseAnnotator):
     @property
     def task_type(self) -> TaskType:
-        return TaskType.CLASSIFICATION
+        return TaskType.DETECTION
 
     def __init__(
         self,
@@ -176,7 +203,12 @@ class ClassificationAnnotator(BaseAnnotator):
         """
         Ожидаем формат от модели:
         {
-          "label": str
+        "detections": [
+                {
+                "bbox": [x1, y1, x2, y2],
+                "label": string
+                }
+            ]
         }
         """
         assert len(batch) == len(raw_preds)
@@ -186,9 +218,9 @@ class ClassificationAnnotator(BaseAnnotator):
             out.append(
                 {
                     "image_id": sample.image_id,
-                    "task": "classification",
+                    "task": "detection",
                     "prediction": {
-                        "label": pred.get("label")
+                        "detections": pred.get("detections")
                     },
                     "raw": {
                         "model_output": pred,

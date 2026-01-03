@@ -74,10 +74,17 @@ class ImageFolderDataset:
                 },
             )
 
+class ModelFamily(str, Enum):
+    QWEN = "qwen"
+    GEMMA = "gemma"
+    GLM = "glm"
+
 class VLMModel(ABC):
     """
     Абстракция над моделью (vLLM / любая VLM).
     """
+    def __init__(self, model_family: ModelFamily) -> None:
+        self.model_family = model_family
 
     @abstractmethod
     def predict_batch(
