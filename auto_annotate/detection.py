@@ -7,6 +7,10 @@ from transformers import AutoProcessor
 import torch
 from PIL import Image
 import json
+from vllm.distributed.parallel_state import destroy_model_parallel, destroy_distributed_environment
+import gc
+import contextlib
+import torch
 
 from .model_adapters.qwen import prepare_inputs_for_vllm
 
@@ -92,6 +96,16 @@ class DetectionModel(VLMModel):
         self.processor = AutoProcessor.from_pretrained(
             hf_name
         )
+        
+    def kill(self):
+        destroy_model_parallel()
+        destroy_distributed_environment()
+        self.llm.llm_engine.engine_core.shutdown()
+        del self.llm
+        with contextlib.suppress(AssertionError):
+            torch.distributed.destroy_process_group()
+        gc.collect()
+        torch.cuda.empty_cache()
 
     # ---- реализация абстрактного метода VLMModel ----
 

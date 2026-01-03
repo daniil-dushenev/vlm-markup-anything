@@ -3,12 +3,12 @@ from typing import Dict, List, Type
 
 from .auto_annotate.base import BaseAnnotator, ImageFolderDataset, TaskType, VLMModel
 from .auto_annotate.classification import ClassificationAnnotator
-# from .detection import DetectionAnnotator
-# from .segmentation import SegmentationAnnotator
+from .auto_annotate.detection import DetectionAnnotator
+# from .auto_annotate.segmentation import SegmentationAnnotator
 
 ANNOTATOR_REGISTRY: Dict[TaskType, Type[BaseAnnotator]] = {
     TaskType.CLASSIFICATION: ClassificationAnnotator,
-    # TaskType.DETECTION: DetectionAnnotator,
+    TaskType.DETECTION: DetectionAnnotator,
     # TaskType.SEGMENTATION: SegmentationAnnotator,
 }
 
