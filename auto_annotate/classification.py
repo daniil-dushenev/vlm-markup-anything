@@ -129,11 +129,14 @@ class ClassificationModel(VLMModel):
             case ModelFamily.QWEN:
                 inputs = [prepare_inputs_for_vllm(message, self.processor) for message in messages]
             case ModelFamily.GEMMA:
-                raise NotImplementedError()
+                prompts = [self.processor.apply_chat_template(message, tokenize=False, add_generation_prompt=True) for message in messages]
+                inputs = [{"prompt": prompt, "multi_modal_data": {"image": [image]}} for prompt, image in zip(prompts, images)]
             case ModelFamily.GLM:
+                # какая-то ошибка как-будто vllm не поддерживает не шарю
                 raise NotImplementedError()
             case _:
-                raise ValueError(f"Unknown model family: {self.model_family}")
+                prompts = [self.processor.apply_chat_template(message, tokenize=False, add_generation_prompt=True) for message in messages]
+                inputs = [{"prompt": prompt, "multi_modal_data": {"image": [image]}} for prompt, image in zip(prompts, images)]
 
         outputs = self.llm.generate(inputs, sampling_params=sampling_params)
 
